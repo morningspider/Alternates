@@ -46,7 +46,18 @@ def is_valid(ISBN):
             return True
         else:
             return False
-
+def ISBN13_to_10(ISBN):
+    truncated = int(ISBN[3:-1])
+    s = 0
+    for i in range(2,11):
+        digit = truncated%10
+        s += i*digit
+        truncated //= 10
+    check = (-s) % 11
+    if check == 10:
+        check = 'x'
+    output = "{}{}".format(ISBN[3:-1], check)
+    return output
 class Window(Frame):
 
     def __init__(self, master=None):
@@ -106,13 +117,8 @@ class Window(Frame):
         if is_valid(ISBN) == False:
             w.insert(1.0, "Invalid ISBN")
             return
-        f = open('alternates.csv')
-#        pairs = []
-#        reader = csv.reader(f)
-#        for row in reader:
-#            pairs.append(row)
-#        G1 = nx.Graph()
-#        G1.add_edges_from(pairs)
+        if len(ISBN) == 13:
+            ISBN = ISBN13_to_10(ISBN)
         try:
             alternates = sorted(nx.node_connected_component(self.G1, ISBN))
             for alt in alternates:

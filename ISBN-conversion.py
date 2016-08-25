@@ -42,4 +42,17 @@ def is_valid(ISBN):
         else:
             return False
 
-print(is_valid("9780078250835"))
+def ISBN13_to_10(ISBN):
+    truncated = int(ISBN[3:-1])
+    s = 0
+    for i in range(2,11):
+        digit = truncated%10
+        s += i*digit
+        truncated //= 10
+    check = (-s) % 11
+    if check == 10:
+        check = 'X'
+    output = "{}{}".format(ISBN[3:-1], check)
+    return output
+
+print(ISBN13_to_10("9780078951152"))
