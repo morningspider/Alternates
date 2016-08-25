@@ -55,38 +55,51 @@ class Window(Frame):
         self.init_window()
 
     def init_window(self):
+        #Initialize window with widgets
+
+        #load alternates data
         f = open('alternates.csv')
         pairs = []
         reader = csv.reader(f)
         for row in reader:
             pairs.append(row)
+
+        #create a graph from the list of edge pairs
         self.G1 = nx.Graph()
         self.G1.add_edges_from(pairs)
 
+        #window title
         self.master.title("Alternate Checker")
-
+        #pack whole window (not sure exactly what this does)
         self.pack(fill=BOTH, expand=1)
 
+        #Create menu bar
         menu = Menu(self.master)
         self.master.config(menu=menu)
 
+        #add File menu dropdown with Exit option
         file = Menu(menu)
         file.add_command(label="Exit", command=self.client_exit)
-
         menu.add_cascade(label="File", menu=file)
 
+        #Add "ISBN" next to entry box
         isbn_label = Label(self, text="ISBN", width=25)
         isbn_label.grid(row=0)
+
+        #Create entry bar and save as variable 'entrytext'
         self.entrytext = StringVar()
         e1 = Entry(self, textvariable=self.entrytext, width=13)
         e1.grid(row=0,column=1)
+
+        #create button to get results
         b = Button(self, text="Get Alternates", command=self.getAlternates)
         b.grid(row=1)
 
+        #initialize text box to print results into
         self.results = Text(self,height=10, width=25)
 
     def getAlternates(self):
-        r=2
+
         ISBN = self.entrytext.get()
         w = self.results
         w.delete(1.0, END)
@@ -105,8 +118,8 @@ class Window(Frame):
             for alt in alternates:
                 if alt == ISBN: continue
                 w.insert(1.0, alt+"\n")
-                w.grid(row=r)
-                r+=1
+                w.grid(row=2)
+
         except KeyError:
             w.insert(1.0, "No Alternates")
             w.grid(row=2)
@@ -114,21 +127,16 @@ class Window(Frame):
     def client_exit(self):
         exit()
 
-root = Tk()
-root.geometry("300x225")
-app = Window(root)
-root.mainloop()
+def main():
+    #initialize tkinter window
+    root = Tk()
+    root.geometry("300x225")
+    app = Window(root)
+    root.mainloop()
 
-#f = open('alternates.csv')
-#pairs = []
-#reader = csv.reader(f)
-#for row in reader:
-#    pairs.append(row)
+if __name__ == '__main__':
+    main()
 
-
-#G1 = nx.Graph()
-#G1.add_edges_from(pairs)
-#print(sorted(nx.node_connected_component(G1,'111823071x')))
 
 
 
