@@ -1,8 +1,9 @@
 import networkx as nx
 import csv
 from tkinter import *
-from distutils.core import setup
-import py2exe
+import pymssql
+import webbrowser
+import _mssql
 
 def is_valid(ISBN):
 
@@ -55,7 +56,7 @@ def ISBN13_to_10(ISBN):
         truncated //= 10
     check = (-s) % 11
     if check == 10:
-        check = 'x'
+        check = 'X'
     output = "{}{}".format(ISBN[3:-1], check)
     return output
 class Window(Frame):
@@ -67,6 +68,14 @@ class Window(Frame):
 
     def init_window(self):
         #Initialize window with widgets
+
+        #Connect to database
+        conn = pymssql.connect(
+            host=r'mssql3.gear.host',
+            user=r'superioreporting',
+            password='7jgX3NVKBCdHL8DYfD9!',
+            database='superiortext')
+        self.cursor = conn.cursor()
 
         #load alternates data
         f = open('alternates.csv')
@@ -94,49 +103,125 @@ class Window(Frame):
         menu.add_cascade(label="File", menu=file)
 
         #Add "ISBN" next to entry box
-        isbn_label = Label(self, text="ISBN", width=25)
-        isbn_label.grid(row=0)
+        isbn_label = Label(self, text="ISBN", width=5)
+        isbn_label.grid(row=0, sticky=E)
 
-        #Create entry bar and save as variable 'entrytext'
+        #Create entry bar and set input to variable 'entrytext'
         self.entrytext = StringVar()
         e1 = Entry(self, textvariable=self.entrytext, width=13)
-        e1.grid(row=0,column=1)
+        e1.grid(row=0,column=1, sticky=W)
 
         #create button to get results
         b = Button(self, text="Get Alternates", command=self.getAlternates)
-        b.grid(row=1)
+        b.grid(row=1, sticky=W)
+
+        #current ISBN labels
+        self.CurrentBookISBN = Label(self, text='')
+        self.CurrentBookISBN.grid(row=2, column=0, sticky=W)
+        self.CurrentBookInfo = Label(self, text="")
+        self.CurrentBookInfo.grid(row=2, column=1, sticky=W)
 
         #initialize text box to print results into
-        self.results = Text(self,height=10, width=25)
+        self.results = Text(self,height=10, width=14)
+        self.results.grid(row=3)
+
+        #initialize text box to print descriptions
+        self.description = Text(self,height=10, width=25, wrap=NONE)
+        self.description.grid(row=3, column=1, sticky=W)
+
+    def open_links(self, ISBN_list):
+        for ISBN in ISBN_list:
+            url = 'https://www.amazon.com/exec/obidos/ASIN/{}/'.format(ISBN)
+            webbrowser.open_new_tab(url)
 
     def getAlternates(self):
-
+        #retrieve given ISBN from entry widget
         ISBN = self.entrytext.get()
+
+        #assign results text box to variable and clear it
         w = self.results
         w.delete(1.0, END)
+
+        self.CurrentBookISBN.config(text='')
+        self.CurrentBookInfo.config(text = '')
+
+        #clear the description text box
+        self.description.delete(1.0, END)
+
+        #check ISBN is valid
         if is_valid(ISBN) == False:
             w.insert(1.0, "Invalid ISBN")
             return
+
+        #convert to ISBN-10
         if len(ISBN) == 13:
             ISBN = ISBN13_to_10(ISBN)
-        try:
-            alternates = sorted(nx.node_connected_component(self.G1, ISBN))
-            for alt in alternates:
-                if alt == ISBN: continue
-                w.insert(1.0, alt+"\n")
-                w.grid(row=2)
 
+        #pull book data for given ISBN
+        try:
+            self.cursor.execute("SELECT Title, CopyrightYear, Publisher FROM Book WHERE ISBN = '{}'".format(ISBN))
+            (Title, CopyrightYear, Publisher) = self.cursor.fetchone()
+        except TypeError:
+            Title, CopyrightYear, Publisher = "Not in Database", "", ""
+
+        #create Labels for given ISBN data
+        self.CurrentBookISBN.config(text=ISBN,)
+        self.CurrentBookInfo.config(text = "{} {} {}".format(Title, CopyrightYear, Publisher))
+
+        box_size = 25
+        try:
+            #pull all connected components from graph
+            alternates = sorted(nx.node_connected_component(self.G1, ISBN))
+            alternates.remove(ISBN)
+
+
+            for alt in alternates:
+                #skip given ISBN
+                if alt == ISBN: continue
+
+                #pull book data for each alternate
+                try:
+                    self.cursor.execute("SELECT Title, CopyrightYear, Publisher FROM Book WHERE ISBN = '{}'".format(alt))
+                    (Title, CopyrightYear, Publisher) = self.cursor.fetchone()
+
+                #if not in database will return None Type which cannot be unpacked
+                except TypeError:
+                    Title, CopyrightYear, Publisher = "Not in Database", "", ""
+
+                #populate description textbox
+                descriptionText = "{} {} {} \n".format(Title, CopyrightYear, Publisher)
+                self.description.insert(1.0,descriptionText)
+
+
+                #check to see if we need to resize the textbox
+                if len(descriptionText) > box_size:
+                    box_size = len(descriptionText)
+
+                #populate ISBN text box
+                w.insert(1.0, "{} \n".format(alt))
+
+            #resize description text box
+            self.description.config(width=box_size)
+
+            # add button
+            button = Button(self, text='Open ISBNs in Amazon', command=lambda ISBNs=alternates: self.open_links(ISBNs))
+            button.grid(row=5, column=0)
+
+        #connected components queries a dict; will throw a KeyError if ISBN is not in the list
         except KeyError:
             w.insert(1.0, "No Alternates")
-            w.grid(row=2)
+            # add button
+            button = Button(self, text='Open ISBNs in Amazon')
+            button.grid(row=5, column=0)
 
     def client_exit(self):
         exit()
 
+
 def main():
     #initialize tkinter window
     root = Tk()
-    root.geometry("300x225")
+    root.geometry("800x400")
     app = Window(root)
     root.mainloop()
 
