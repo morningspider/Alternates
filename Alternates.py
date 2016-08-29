@@ -102,32 +102,54 @@ class Window(Frame):
         file.add_command(label="Exit", command=self.client_exit)
         menu.add_cascade(label="File", menu=file)
 
-        #Add "ISBN" next to entry box
-        isbn_label = Label(self, text="ISBN", width=5)
-        isbn_label.grid(row=0, sticky=E)
-
         #Create entry bar and set input to variable 'entrytext'
         self.entrytext = StringVar()
         e1 = Entry(self, textvariable=self.entrytext, width=13)
-        e1.grid(row=0,column=1, sticky=W)
+        e1.grid(row=0,column=0, sticky=W)
 
         #create button to get results
         b = Button(self, text="Get Alternates", command=self.getAlternates)
         b.grid(row=1, sticky=W)
 
+        isbn_header = Label(self, text='ISBN', font="Helvetica 10 bold")
+        isbn_header.grid(row=2, column=0, sticky=W)
+
+        title_header = Label(self, text='Title', font="Helvetica 10 bold")
+        title_header.grid(row=2, column=1, sticky=W)
+
+        copyright_header = Label(self, text='©', font="Helvetica 10 bold")
+        copyright_header.grid(row=2, column=2, sticky=W)
+
+        publisher_header = Label(self, text='Publisher', font="Helvetica 10 bold")
+        publisher_header.grid(row=2, column=3, sticky=W)
+
+
         #current ISBN labels
-        self.CurrentBookISBN = Label(self, text='')
-        self.CurrentBookISBN.grid(row=2, column=0, sticky=W)
-        self.CurrentBookInfo = Label(self, text="")
-        self.CurrentBookInfo.grid(row=2, column=1, sticky=W)
+        self.CurrentBookISBN = Label(self, text='', font="Helvetica 10")
+        self.CurrentBookISBN.grid(row=3, column=0, sticky=W)
+
+        self.CurrentBookTitle = Label(self, text="", font="Helvetica 10")
+        self.CurrentBookTitle.grid(row=3, column=1, sticky=W)
+
+        self.CurrentBookCopyright = Label(self, text="", font="Helvetica 10")
+        self.CurrentBookCopyright.grid(row=3, column=2, sticky=W)
+
+        self.CurrentBookPublisher = Label(self, text="", font="Helvetica 10")
+        self.CurrentBookPublisher.grid(row=3, column=3, sticky=W)
 
         #initialize text box to print results into
-        self.results = Text(self,height=10, width=14)
-        self.results.grid(row=3)
+        self.results = Text(self,height=10, width=14, font="Helvetica 10")
+        self.results.grid(row=4, sticky=W)
 
-        #initialize text box to print descriptions
-        self.description = Text(self,height=10, width=25, wrap=NONE)
-        self.description.grid(row=3, column=1, sticky=W)
+        #initialize text boxes to print descriptions
+        self.titles = Text(self,height=10, width=25, wrap=NONE, font="Helvetica 10")
+        self.titles.grid(row=4, column=1, sticky=W)
+
+        self.copyrights = Text(self,height=10, width=4, wrap=NONE, font="Helvetica 10")
+        self.copyrights.grid(row=4, column=2, sticky=W)
+
+        self.publishers = Text(self,height=10, width=25, wrap=NONE, font="Helvetica 10")
+        self.publishers.grid(row=4, column=3, sticky=W)
 
     def open_links(self, ISBN_list):
         for ISBN in ISBN_list:
@@ -143,10 +165,14 @@ class Window(Frame):
         w.delete(1.0, END)
 
         self.CurrentBookISBN.config(text='')
-        self.CurrentBookInfo.config(text = '')
+        self.CurrentBookTitle.config(text='')
+        self.CurrentBookCopyright.config(text='')
+        self.CurrentBookPublisher.config(text='')
 
-        #clear the description text box
-        self.description.delete(1.0, END)
+        #clear the description text boxes
+        self.titles.delete(1.0, END)
+        self.copyrights.delete(1.0, END)
+        self.publishers.delete(1.0, END)
 
         #check ISBN is valid
         if is_valid(ISBN) == False:
@@ -166,7 +192,9 @@ class Window(Frame):
 
         #create Labels for given ISBN data
         self.CurrentBookISBN.config(text=ISBN,)
-        self.CurrentBookInfo.config(text = "{} {} {}".format(Title, CopyrightYear, Publisher))
+        self.CurrentBookTitle.config(text=Title)
+        self.CurrentBookCopyright.config(text=CopyrightYear)
+        self.CurrentBookPublisher.config(text=Publisher)
 
         box_size = 25
         try:
@@ -174,34 +202,30 @@ class Window(Frame):
             alternates = sorted(nx.node_connected_component(self.G1, ISBN))
             alternates.remove(ISBN)
 
-
             for alt in alternates:
-                #skip given ISBN
-                if alt == ISBN: continue
-
-                #pull book data for each alternate
+                #query database
                 try:
                     self.cursor.execute("SELECT Title, CopyrightYear, Publisher FROM Book WHERE ISBN = '{}'".format(alt))
                     (Title, CopyrightYear, Publisher) = self.cursor.fetchone()
 
-                #if not in database will return None Type which cannot be unpacked
+                #if ISBN is not in database then execute() will return None Type
                 except TypeError:
                     Title, CopyrightYear, Publisher = "Not in Database", "", ""
 
                 #populate description textbox
-                descriptionText = "{} {} {} \n".format(Title, CopyrightYear, Publisher)
-                self.description.insert(1.0,descriptionText)
-
+                self.titles.insert(1.0,"{}\n".format(Title))
+                self.copyrights.insert(1.0,"{}\n".format(CopyrightYear))
+                self.publishers.insert(1.0, "{}\n".format(Publisher))
 
                 #check to see if we need to resize the textbox
-                if len(descriptionText) > box_size:
-                    box_size = len(descriptionText)
+                if len(Title) > box_size:
+                    box_size = len(Title)
 
                 #populate ISBN text box
                 w.insert(1.0, "{} \n".format(alt))
 
             #resize description text box
-            self.description.config(width=box_size)
+            self.titles.config(width=box_size)
 
             # add button
             button = Button(self, text='Open ISBNs in Amazon', command=lambda ISBNs=alternates: self.open_links(ISBNs))
@@ -221,7 +245,7 @@ class Window(Frame):
 def main():
     #initialize tkinter window
     root = Tk()
-    root.geometry("800x400")
+    root.geometry("800x600")
     app = Window(root)
     root.mainloop()
 
